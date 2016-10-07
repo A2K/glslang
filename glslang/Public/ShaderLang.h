@@ -39,6 +39,13 @@
 
 #include <cstring>
 
+#include <vector>
+#include <sstream>
+#include <iostream>
+#include <fstream>
+#include <iterator>
+
+
 #ifdef _WIN32
 #define C_DECL __cdecl
 //#ifdef SH_EXPORTING
@@ -63,7 +70,6 @@
 #ifdef __cplusplus
     extern "C" {
 #endif
-
 //
 // Driver must call this first, once, before doing any other
 // compiler/linker operations.
@@ -160,9 +166,9 @@ typedef struct {
 
 //
 // ShHandle held by but opaque to the driver.  It is allocated,
-// managed, and de-allocated by the compiler/linker. It's contents 
+// managed, and de-allocated by the compiler/linker. It's contents
 // are defined by and used by the compiler and linker.  For example,
-// symbol table information and object code passed from the compiler 
+// symbol table information and object code passed from the compiler
 // to the linker can be stored where ShHandle points.
 //
 // If handle creation fails, 0 will be returned.
@@ -182,7 +188,7 @@ SH_IMPORT_EXPORT void ShDestruct(ShHandle);
 // The return value of ShCompile is boolean, non-zero indicating
 // success.
 //
-// The info-log should be written by ShCompile into 
+// The info-log should be written by ShCompile into
 // ShHandle, so it can answer future queries.
 //
 SH_IMPORT_EXPORT int ShCompile(
@@ -246,8 +252,8 @@ SH_IMPORT_EXPORT int ShGetUniformLocation(const ShHandle uniformMap, const char*
 // -----------------------------------
 //
 // Below is a new alternate C++ interface that might potentially replace the above
-// opaque handle-based interface.  
-//    
+// opaque handle-based interface.
+//
 // The below is further designed to handle multiple compilation units per stage, where
 // the intermediate results, including the parse tree, are preserved until link time,
 // rather than the above interface which is designed to have each compilation unit
@@ -376,13 +382,19 @@ public:
     // Returns an error message for any #include directive.
     class ForbidInclude : public Includer {
     public:
-        IncludeResult* include(const char*, IncludeType, const char*, size_t) override
+        IncludeResult* include(const char* filename, IncludeType type, const char* srcFilename, size_t inclusion_depth) override
         {
-            const char* unexpected_include = "unexpected include directive";
-            return new IncludeResult(std::string(""), unexpected_include, strlen(unexpected_include), nullptr);
+
+            std::ifstream t(filename, std::ios::binary);
+            std::string str((std::istreambuf_iterator<char>(t)),
+            std::istreambuf_iterator<char>());
+            char* data = new char[str.size() + 1];
+            memcpy(data, str.c_str(), str.size() + 1);
+            return new IncludeResult(filename, data, str.size(), 0);
         }
         virtual void releaseInclude(IncludeResult* result) override
         {
+            delete result->file_data;
             delete result;
         }
     };
@@ -440,7 +452,7 @@ private:
 class TReflection;
 class TIoMapper;
 
-// Make one TProgram per set of shaders that will get linked together.  Add all 
+// Make one TProgram per set of shaders that will get linked together.  Add all
 // the shaders that are to be linked together.  After calling shader.parse()
 // for all shaders, call link().
 //
