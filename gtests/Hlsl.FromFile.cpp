@@ -64,14 +64,14 @@ using HlslCompileAndFlattenTest = GlslangTest<::testing::TestWithParam<FileNameE
 // generate both AST and SPIR-V.
 TEST_P(HlslCompileTest, FromFile)
 {
-    loadFileCompileAndCheck(GLSLANG_TEST_DIRECTORY, GetParam().fileName,
+    loadFileCompileAndCheck(GlobalTestSettings.testRoot, GetParam().fileName,
                             Source::HLSL, Semantics::Vulkan,
                             Target::BothASTAndSpv, GetParam().entryPoint);
 }
 
 TEST_P(HlslCompileAndFlattenTest, FromFile)
 {
-    loadFileCompileFlattenUniformsAndCheck(GLSLANG_TEST_DIRECTORY, GetParam().fileName,
+    loadFileCompileFlattenUniformsAndCheck(GlobalTestSettings.testRoot, GetParam().fileName,
                                            Source::HLSL, Semantics::Vulkan,
                                            Target::BothASTAndSpv, GetParam().entryPoint);
 }
@@ -99,6 +99,7 @@ INSTANTIATE_TEST_CASE_P(
         {"hlsl.entry-out.frag", "PixelShaderFunction"},
         {"hlsl.float1.frag", "PixelShaderFunction"},
         {"hlsl.float4.frag", "PixelShaderFunction"},
+        {"hlsl.flatten.return.frag", "main"},
         {"hlsl.forLoop.frag", "PixelShaderFunction"},
         {"hlsl.gather.array.dx10.frag", "main"},
         {"hlsl.gather.basic.dx10.frag", "main"},
@@ -110,6 +111,7 @@ INSTANTIATE_TEST_CASE_P(
         {"hlsl.gatherRGBA.offset.dx10.frag", "main"},
         {"hlsl.gatherRGBA.offsetarray.dx10.frag", "main"},
         {"hlsl.getdimensions.dx10.frag", "main"},
+        {"hlsl.getdimensions.rw.dx10.frag", "main"},
         {"hlsl.getdimensions.dx10.vert", "main"},
         {"hlsl.getsampleposition.dx10.frag", "main"},
         {"hlsl.if.frag", "PixelShaderFunction"},
@@ -132,9 +134,13 @@ INSTANTIATE_TEST_CASE_P(
         {"hlsl.load.basic.dx10.frag", "main"},
         {"hlsl.load.basic.dx10.vert", "main"},
         {"hlsl.load.buffer.dx10.frag", "main"},
+        {"hlsl.load.rwbuffer.dx10.frag", "main"},
+        {"hlsl.load.rwtexture.dx10.frag", "main"},
+        {"hlsl.load.rwtexture.array.dx10.frag", "main"},
         {"hlsl.load.offset.dx10.frag", "main"},
         {"hlsl.load.offsetarray.dx10.frag", "main"},
         {"hlsl.multiEntry.vert", "RealEntrypoint"},
+        {"hlsl.multiReturn.frag", "main"},
         {"hlsl.matrixindex.frag", "main"},
         {"hlsl.numericsuffixes.frag", "main"},
         {"hlsl.overload.frag", "PixelShaderFunction"},
@@ -169,6 +175,7 @@ INSTANTIATE_TEST_CASE_P(
         {"hlsl.samplelevel.offsetarray.dx10.frag", "main"},
         {"hlsl.semicolons.frag", "main"},
         {"hlsl.shapeConv.frag", "main"},
+        {"hlsl.shapeConvRet.frag", "main"},
         {"hlsl.stringtoken.frag", "main"},
         {"hlsl.string.frag", "main"},
         {"hlsl.structin.vert", "main"},
