@@ -102,7 +102,12 @@ enum TFailCode {
 //
 EShLanguage FindLanguage(const std::string& name, bool parseSuffix=true);
 void CompileFile(const char* fileName, ShHandle);
-void usage();
+void _usage();
+#define usage _usage
+//{ \
+//  std::cout << __LINE__ << "\n"; \
+//  _usage(); \
+//} void
 void FreeFileData(char** data);
 char** ReadFileData(const char* fileName);
 void InfoLogMsg(const char* msg, const char* name, const int num);
@@ -160,6 +165,7 @@ const char* ExecutableName = nullptr;
 const char* binaryFileName = nullptr;
 const char* entryPointName = nullptr;
 const char* shaderStageName = nullptr;
+std::list<std::string> includeDirectories;
 
 std::array<unsigned int, EShLangCount> baseSamplerBinding;
 std::array<unsigned int, EShLangCount> baseTextureBinding;
@@ -392,12 +398,27 @@ void ProcessArguments(int argc, char* argv[])
             case 'x':
                 Options |= EOptionOutputHexadecimal;
                 break;
+            case 'I':
+                {
+                std::string path(argv[0] + 2);
+                if (path.size() == 0) 
+                    Error("no <path> provided for -I");
+                else 
+                  includeDirectories.push_back(path);
+                }
+                break;
             default:
                 usage();
                 break;
             }
         } else {
             std::string name(argv[0]);
+            size_t slash = name.rfind('/');
+            if (slash == -1) slash = name.rfind('\\');
+            if (slash != -1) {
+                std::string path = name.substr(0, slash);
+                includeDirectories.push_back(path);
+            }
             if (! SetConfigFile(name)) {
                 Work[argc] = new glslang::TWorkItem(name);
                 Worklist.add(Work[argc]);
@@ -796,17 +817,18 @@ int C_DECL main(int argc, char* argv[])
 //
 EShLanguage FindLanguage(const std::string& name, bool parseSuffix)
 {
+    size_t dot = 0;
     size_t ext = 0;
 
     // Search for a suffix on a filename: e.g, "myfile.frag".  If given
     // the suffix directly, we skip looking the '.'
     if (parseSuffix) {
-        ext = name.rfind('.');
+        dot = name.rfind('.');
         if (ext == std::string::npos) {
             usage();
             return EShLangVertex;
         }
-        ++ext;
+        ext = dot + 1;
     }
 
     std::string suffix = name.substr(ext, std::string::npos);
@@ -825,6 +847,15 @@ EShLanguage FindLanguage(const std::string& name, bool parseSuffix)
         return EShLangFragment;
     else if (suffix == "comp")
         return EShLangCompute;
+
+    
+    size_t suffixLen = std::max(std::string("_fragment").size(), std::string("_vertex").size());
+
+    if (dot > suffixLen) {
+        suffix = name.substr(dot - suffixLen, suffixLen);
+        if (suffix == "_fragment") return EShLangFragment;
+        if (suffix == "_vertex") return EShLangVertex;
+    }
 
     usage();
     return EShLangVertex;
@@ -881,7 +912,7 @@ void CompileFile(const char* fileName, ShHandle compiler)
 //
 //   print usage to stdout
 //
-void usage()
+void _usage()
 {
     printf("Usage: glslangValidator [option]... [file]...\n"
            "\n"
@@ -917,6 +948,7 @@ void usage()
            "  -e          specify entry-point name\n"
            "  -h          print this usage message\n"
            "  -i          intermediate tree (glslang AST) is printed out\n"
+           "  -I          specifies directory to be searched for header files\n"
            "  -l          link all input files together to form a single module\n"
            "  -m          memory leak mode\n"
            "  -o  <file>  save binary to <file>, requires a binary option (e.g., -V)\n"
@@ -1060,3 +1092,4 @@ void InfoLogMsg(const char* msg, const char* name, const int num)
     else
         printf("#### %s %s INFO LOG ####\n", msg, name);
 }
+

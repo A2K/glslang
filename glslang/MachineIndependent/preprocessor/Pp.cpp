@@ -89,6 +89,8 @@ NVIDIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "PpContext.h"
 #include "PpTokens.h"
 
+extern std::list<std::string> includeDirectories;
+
 namespace glslang {
 
 int TPpContext::InitCPP()
@@ -654,57 +656,76 @@ int TPpContext::CPPinclude(TPpToken* ppToken)
         std::string filename = ppToken->name;
       }
 
-        // Make a copy of the name because it will be overwritten by the next token scan.
-        //std::string filename = ppToken->name;
-        token = scanToken(ppToken);
-        if (token != '\n' && token != '>' && token != EndOfInput) {
-            parseContext.ppError(ppToken->loc, "extra content after file designation", "#include", "");
-        } else {
-          std::vector<std::string> partParts;
-          std::vector<std::string> parts = split(filename, '/');
-          for (auto i = parts.begin(); i != parts.end(); ++i) {
-            std::string s = *i;
-            std::vector<std::string> p = split(s, '_');
-            for (auto j = p.begin(); j != p.end(); ++j) {
-              partParts.push_back(*j);
-            }
+      // Make a copy of the name because it will be overwritten by the next token scan.
+      token = scanToken(ppToken);
+      if (token != '\n' && token != '>' && token != EndOfInput) {
+        parseContext.ppError(ppToken->loc, "extra content after file designation", "#include", "");
+      } else {
+        std::vector<std::string> partParts;
+        std::vector<std::string> parts = split(filename, '/');
+        for (auto i = parts.begin(); i != parts.end(); ++i) {
+          std::string s = *i;
+          std::vector<std::string> p = split(s, '_');
+          for (auto j = p.begin(); j != p.end(); ++j) {
+            partParts.push_back(*j);
           }
-          if (partParts.size() > 1) {
-            if (partParts[partParts.size() - 2] == "fragment" || partParts[partParts.size() - 2] == "vertex") {
-              std::string joined = (*(partParts.begin() + partParts.size() - 1)) + "_" + (*(partParts.begin() + partParts.size() - 2));
-              partParts.pop_back();
-              partParts.pop_back();
-              partParts.push_back(joined);
-
-              }
-          }
-
-          filename = "D:\\Google Drive\\webglplanets\\html\\shaders\\" + join(partParts, "\\") + ".glsl";
-
-            TShader::Includer::IncludeResult* res = includer.include(filename.c_str(), TShader::Includer::EIncludeRelative, currentSourceFile.c_str(), includeStack.size() + 1);
-            if (res && !res->file_name.empty()) {
-                if (res->file_data && res->file_length) {
-                    const bool forNextLine = parseContext.lineDirectiveShouldSetNextLine();
-                    std::ostringstream prologue;
-                    std::ostringstream epilogue;
-                    prologue << "#line " << forNextLine << " " << "\"" << res->file_name << "\"\n";
-                    epilogue << (res->file_data[res->file_length - 1] == '\n'? "" : "\n") << "#line " << directiveLoc.line + forNextLine << " " << directiveLoc.getStringNameOrNum() << "\n";
-                    pushInput(new TokenizableIncludeFile(directiveLoc, prologue.str(), res, epilogue.str(), this));
-                }
-                // At EOF, there's no "current" location anymore.
-                if (token != EndOfInput) parseContext.setCurrentColumn(0);
-                // Don't accidentally return EndOfInput, which will end all preprocessing.
-                return '\n';
-            } else {
-                std::string message =
-                    res ? std::string(res->file_data, res->file_length)
-                        : std::string("Could not process include directive");
-                parseContext.ppError(directiveLoc, message.c_str(), "#include", "");
-                if (res) {
-                    includer.releaseInclude(res);
-                }
-            }
         }
+        if (partParts.size() > 1) {
+          if (partParts[partParts.size() - 2] == "fragment" || partParts[partParts.size() - 2] == "vertex") {
+            std::string joined = (*(partParts.begin() + partParts.size() - 1)) + "_" + (*(partParts.begin() + partParts.size() - 2));
+            partParts.pop_back();
+            partParts.pop_back();
+            partParts.push_back(joined);
+
+          }
+        }
+
+        std::string joined = join(partParts, "/");
+
+        bool found = false;
+        for(auto iter = includeDirectories.begin(); iter != includeDirectories.end(); ++iter) {
+
+          std::string filename = (*iter) + "/" + joined + ".glsl";
+
+          if (!std::ifstream(filename).good()) {
+            continue;
+          }
+
+          TShader::Includer::IncludeResult* res = includer.include(filename.c_str(), TShader::Includer::EIncludeRelative, currentSourceFile.c_str(), includeStack.size() + 1);
+          if (res && !res->file_name.empty()) {
+            if (res->file_data && res->file_length) {
+              found = true;
+              const bool forNextLine = parseContext.lineDirectiveShouldSetNextLine();
+              std::ostringstream prologue;
+              std::ostringstream epilogue;
+              prologue << "#line " << forNextLine << " " << "\"" << res->file_name << "\"\n";
+              epilogue << (res->file_data[res->file_length - 1] == '\n'? "" : "\n") << "#line " << directiveLoc.line + forNextLine << " " << directiveLoc.getStringNameOrNum() << "\n";
+              pushInput(new TokenizableIncludeFile(directiveLoc, prologue.str(), res, epilogue.str(), this));
+            }
+            // At EOF, there's no "current" location anymore.
+            if (token != EndOfInput) parseContext.setCurrentColumn(0);
+            // Don't accidentally return EndOfInput, which will end all preprocessing.
+            return '\n';
+          } else {
+            std::string message =
+              res ? std::string(res->file_data, res->file_length)
+              : std::string("Could not process include directive");
+            parseContext.ppError(directiveLoc, message.c_str(), "#include", "");
+            if (res) {
+              includer.releaseInclude(res);
+            }
+          }
+
+          
+
+          break;
+        }
+        if (!found) {
+          std::string message("file not found: ");
+          message += "<" + filename + ">";
+          parseContext.ppError(directiveLoc, message.c_str(), "#include", "");
+        }
+      }
     }
     return token;
 }
@@ -1225,3 +1246,4 @@ int TPpContext::MacroExpand(int atom, TPpToken* ppToken, bool expandUndef, bool 
 }
 
 } // end namespace glslang
+
